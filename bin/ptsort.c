@@ -383,7 +383,7 @@ input(const char *fn)
 		fclose(f);
 	free(rn);
 	verbose("read %lu lines from %s", nlines, fn);
-	verbose("inserted %lu nodes and %lu edges", nnodes, nedges);
+	verbose("inserted %lu new nodes and %lu new edges", nnodes, nedges);
 	tnedges += nedges;
 	tnnodes += nnodes;
 }
@@ -399,8 +399,6 @@ output(void)
 	aa_iterator *nit;
 	pnode **all, **p;
 	pnode *n;
-
-	verbose("graph has %lu nodes and %lu edges", tnnodes, tnedges);
 
 	/* allocate array of pointers */
 	if ((p = all = malloc(tnnodes * sizeof *all)) == NULL)
@@ -468,6 +466,7 @@ main(int argc, char *argv[])
 	else
 		while (argc--)
 			input(*argv++);
+	verbose("graph has %lu nodes and %lu edges", tnnodes, tnedges);
 	output();
 	exit(0);
 }
