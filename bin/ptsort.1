@@ -86,7 +86,7 @@ name to consist entirely of digits.
 If the line contains two names, the effect is to insert a directed
 edge into the graph going from the first (predecessor) node to the
 second (successor) node.
-Either or both nodes are created unless they already exist.
+Either or both nodes are created if they do not already exist.
 If both names are identical, no edge is inserted, but the node is
 still created unless it already exists.
 .Pp
@@ -112,6 +112,8 @@ A syntax error was encountered in the input.
 .It 3
 A cycle was detected while running in strict mode.
 .El
+.Pp
+Otherwise, it exits with code 0.
 .Sh SEE ALSO
 .Xr tsort 1
 .Sh AUTHORS
