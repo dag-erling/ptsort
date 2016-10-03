@@ -405,11 +405,11 @@ ptsort(void)
 		*p++ = n;
 	aa_finish(&nit);
 	qsort(all, tnnodes, sizeof *all, pnodep_priocmp);
-	while (p-- > all)
+	while (p-- > all) {
 		if (printprio)
-			printf("%s %lu\n", (*p)->name, (*p)->prio);
-		else
-			printf("%s\n", (*p)->name);
+			printf("%7lu ", (*p)->prio);
+		printf("%s\n", (*p)->name);
+	}
 }
 
 static void
