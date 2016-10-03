@@ -394,11 +394,12 @@ input(const char *fn)
  * names in reverse order.
  */
 static void
-output(void)
+output(const char *fn)
 {
 	aa_iterator *nit;
 	pnode **all, **p;
 	pnode *n;
+	FILE *f;
 
 	/* allocate array of pointers */
 	if ((p = all = malloc(tnnodes * sizeof *all)) == NULL)
@@ -413,12 +414,22 @@ output(void)
 	/* sort by priority */
 	qsort(all, tnnodes, sizeof *all, pnodep_priocmp);
 
+	/* output to file or stdout */
+	if (fn == NULL)
+		f = stdout;
+	else if ((f = fopen(fn, "w")) == NULL)
+		err(1, "%s", fn);
+
 	/* reverse through the array and print each node's name */
 	while (p-- > all) {
 		if (printprio)
-			printf("%7lu ", (*p)->prio);
-		printf("%s\n", (*p)->name);
+			fprintf(f, "%7lu ", (*p)->prio);
+		fprintf(f, "%s\n", (*p)->name);
 	}
+
+	/* done */
+	if (f != stdout)
+		fclose(f);
 }
 
 static void
@@ -432,6 +443,7 @@ usage(void)
 int
 main(int argc, char *argv[])
 {
+	const char *ofn = NULL;
 	int opt;
 
 	aa_init(&nodes, (aa_comparator)strcmp);
@@ -439,8 +451,7 @@ main(int argc, char *argv[])
 	while ((opt = getopt(argc, argv, "opqsv")) != -1)
 		switch (opt) {
 		case 'o':
-			if (freopen(optarg, "r", stdout) == NULL)
-				err(1, "%s", optarg);
+			ofn = optarg;
 			break;
 		case 'p':
 			printprio = 1;
@@ -467,6 +478,6 @@ main(int argc, char *argv[])
 		while (argc--)
 			input(*argv++);
 	verbose("graph has %lu nodes and %lu edges", tnnodes, tnedges);
-	output();
+	output(ofn);
 	exit(0);
 }
