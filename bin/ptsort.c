@@ -40,16 +40,6 @@
 
 #include "aa_tree.h"
 
-/*
- * ptsort: like tsort, but with the option to assign priorities to nodes.
- *
- * We keep nodes in a sorted balanced search tree for easy lookup and
- * deduplication.  Each node contains a NUL-terminated name, a sorted
- * balanced search tree of its predecessors and a priority.  When
- * traversing the graph to propagate priorities, the last byte of the name
- * is used as a processing mark for loop detection.
- */
-
 static int printprio;
 static int quiet;
 static int strict;
@@ -257,7 +247,8 @@ pnode_raise(pnode *n, unsigned long prio)
 }
 
 /*
- * Read nodes and edges from a file.
+ * Read nodes and edges from a file and construct our graph, setting and
+ * propagating node priorities as we go along.
  *
  * Each line is either:
  *
@@ -274,6 +265,12 @@ pnode_raise(pnode *n, unsigned long prio)
  * non-whitespace characters.  However, it is not safe to give a node a
  * name consisting entirely of digits, as it may be interpreted as a
  * priority.
+ *
+ * We keep nodes in a sorted balanced search tree for easy lookup and
+ * deduplication.  Each node contains a NUL-terminated name (which is also
+ * the sorting key), a sorted balanced search tree of its predecessors and
+ * a priority.  When traversing the graph to propagate priorities, the
+ * last byte of the name is used as a processing mark for loop detection.
  *
  * We keep a node in reserve so we don't have to keep allocating new nodes
  * and then freeing them when they turn out to already be in the tree.
@@ -391,20 +388,34 @@ input(const char *fn)
 	tnnodes += nnodes;
 }
 
+/*
+ * Output a partial ordering of the nodes in the graph.  We form an array
+ * of pointers to all of our notes, sort them by priority and print the
+ * names in reverse order.
+ */
 static void
-ptsort(void)
+output(void)
 {
 	aa_iterator *nit;
 	pnode **all, **p;
 	pnode *n;
 
 	verbose("graph has %lu nodes and %lu edges", tnnodes, tnedges);
+
+	/* allocate array of pointers */
 	if ((p = all = malloc(tnnodes * sizeof *all)) == NULL)
 		err(1, "malloc()");
+
+	/* copy nodes into array in lexical order */
 	for (n = aa_first(&nodes, &nit); n != NULL; n = aa_next(&nit))
 		*p++ = n;
 	aa_finish(&nit);
+	/* p now points one past the end of the array */
+
+	/* sort by priority */
 	qsort(all, tnnodes, sizeof *all, pnodep_priocmp);
+
+	/* reverse through the array and print each node's name */
 	while (p-- > all) {
 		if (printprio)
 			printf("%7lu ", (*p)->prio);
@@ -457,6 +468,6 @@ main(int argc, char *argv[])
 	else
 		while (argc--)
 			input(*argv++);
-	ptsort();
+	output();
 	exit(0);
 }
