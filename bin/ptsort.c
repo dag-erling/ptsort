@@ -39,6 +39,7 @@
 #include <unistd.h>
 
 #include "aa_tree.h"
+#include "fline.h"
 
 static int printprio;
 static int quiet;
@@ -50,88 +51,6 @@ static int vlevel;
 		if (vlevel > 0)						\
 			warnx(__VA_ARGS__);				\
 	} while (0)
-
-/*
- * Read a full line of text from a stream
- */
-static const char *
-freadline(FILE *f)
-{
-	static FILE *curf;
-	static char *buf, *line, *next, *end;
-	static size_t len, size, r;
-	char *p, *q;
-
-	if (buf == NULL) {
-		/* first call, allocate buffer */
-		size = 1024;
-		if ((buf = malloc(size)) == NULL)
-			err(1, "malloc()");
-		next = line = end = buf;
-		len = 0;
-		curf = f;
-	} else if (f != curf) {
-		/* first call for new file, reset pointers */
-		next = line = end = buf;
-		len = 0;
-		curf = f;
-	}
-
-	/*
-	 * See if we already have a full line waiting.
-	 */
-	for (p = q = next; q < end; ++q) {
-		if (*q == '\n') {
-			next = q + 1;
-			*q = '\0';
-			return (p);
-		}
-	}
-
-	/*
-	 * Either our buffer is empty, or it only contains a partial line.
-	 * We need to read more data into it, and possibly expand it.
-	 * Start by moving the partial line (if any) up to the front.
-	 */
-	if (next > buf) {
-		/* shift everything up by next - buf */
-		len = end - next;
-		memmove(buf, next, len);
-		next = buf;
-		end = buf + len;
-	}
-	for (;;) {
-		if (len == size) {
-			/* expand the buffer */
-			size = size * 2;
-			if ((buf = realloc(buf, size)) == NULL)
-				err(1, "realloc()");
-			end = buf + len;
-		}
-		if ((r = fread(end, 1, size - len, f)) == 0) {
-			/* either EOF or error */
-			if (len == 0) {
-				/* we got nothing */
-				return (NULL);
-			}
-			/* whatever is left */
-			next = end + 1;
-			*end = '\0';
-			return (buf);
-		}
-		/* we got something, let's look for EOL */
-		len += r;
-		end += r;
-		for (p = q = next; q < end; ++q) {
-			if (*q == '\n') {
-				next = q + 1;
-				*q = '\0';
-				return (p);
-			}
-		}
-		/* nothing, loop around */
-	}
-}
 
 /*
  * Quick character classification, assuming ASCII
@@ -281,6 +200,7 @@ static void
 input(const char *fn)
 {
 	FILE *f;
+	struct fline_buf *lb;
 	struct pnode *pn, *sn, *rn; /* pred / succ / reserve node */
 	struct pnode *n;
 	const char *pnb, *pne, *snb, *sne; /* pred / succ name beg / end */
@@ -288,6 +208,10 @@ input(const char *fn)
 	char *e;
 	unsigned long nlines, nedges, nnodes;
 	unsigned long prio;
+
+	/* allocate fline structure */
+	if ((lb = fline_new()) == NULL)
+		err(1, "fline_new()");
 
 	/* open input file */
 	if (fn == NULL || strcmp(fn, "-") == 0) {
@@ -302,7 +226,7 @@ input(const char *fn)
 
 	/* read line by line */
 	nlines = nedges = nnodes = 0;
-	while ((line = freadline(f)) != NULL) {
+	while ((line = fline_read(f, lb)) != NULL) {
 		nlines++;
 		/* leading whitespace */
 		for (p = line; is_space(*p); p++)
@@ -381,6 +305,7 @@ input(const char *fn)
 		err(1, "%s", fn);
 	if (f != stdin)
 		fclose(f);
+	fline_free(lb);
 	free(rn);
 	verbose("read %lu lines from %s", nlines, fn);
 	verbose("inserted %lu new nodes and %lu new edges", nnodes, nedges);
