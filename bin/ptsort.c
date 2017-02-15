@@ -376,7 +376,7 @@ main(int argc, char *argv[])
 
 	aa_init(&nodes, (aa_comparator)strcmp);
 
-	while ((opt = getopt(argc, argv, "opqsv")) != -1)
+	while ((opt = getopt(argc, argv, "o:pqsv")) != -1)
 		switch (opt) {
 		case 'o':
 			ofn = optarg;
