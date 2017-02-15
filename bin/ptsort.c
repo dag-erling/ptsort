@@ -41,6 +41,8 @@
 #include "aa_tree.h"
 #include "fline.h"
 
+static int bydepth;
+static int printdepth;
 static int printprio;
 static int quiet;
 static int strict;
@@ -63,13 +65,20 @@ static int vlevel;
 	((unsigned char)(ch) == ' ' || (unsigned char)(ch) == '\t')
 
 /*
- * Nodes in the graph
+ * Nodes in the graph.
+ *
+ * Each node has a name, a list of predecessors, a depth and a priority.
+ * The depth is the length of the node's longest chain of successors.  The
+ * priority is an integer in the range [prio, prio + P) where P is the
+ * highest number by which the node itself or any of its successors has
+ * been boosted.
  */
 #define NAMELEN		 255
 
 typedef struct pnode {
 	char		 name[NAMELEN + 1];
 	aa_tree		 pred;
+	unsigned long	 depth;
 	unsigned long	 prio;
 } pnode;
 
@@ -82,7 +91,29 @@ static unsigned long tnedges, tnnodes;
 static aa_comparator pnode_namecmp = (aa_comparator)strcmp;
 
 /*
- * Compare two nodes by their priorities.
+ * Compare two nodes by their depths first and priorities second.
+ */
+static int
+pnode_depthcmp(const void *av, const void *bv)
+{
+	const pnode *a = av;
+	const pnode *b = bv;
+
+	return (a->depth > b->depth ? 1 : a->depth < b->depth ? -1 :
+	    a->prio > b->prio ? 1 : a->prio < b->prio ? -1 : 0);
+}
+
+static int
+pnodep_depthcmp(const void *av, const void *bv)
+{
+	const pnode *const *a = av;
+	const pnode *const *b = bv;
+
+	return (pnode_depthcmp(*a, *b));
+}
+
+/*
+ * Compare two nodes by their priorities first and depths second.
  */
 static int
 pnode_priocmp(const void *av, const void *bv)
@@ -90,7 +121,8 @@ pnode_priocmp(const void *av, const void *bv)
 	const pnode *a = av;
 	const pnode *b = bv;
 
-	return (a->prio > b->prio ? 1 : a->prio < b->prio ? -1 : 0);
+	return (a->prio > b->prio ? 1 : a->prio < b->prio ? -1 :
+	    a->depth > b->depth ? 1 : a->depth < b->depth ? -1 : 0);
 }
 
 static int
@@ -101,7 +133,6 @@ pnodep_priocmp(const void *av, const void *bv)
 
 	return (pnode_priocmp(*a, *b));
 }
-
 
 /*
  * Allocate and initialize a new node.
@@ -132,22 +163,32 @@ pnode_destroy(pnode *n)
 #endif
 
 /*
- * If the priority of a node is less than the given value, raise it to
- * that value and propagate the change to all of its predecessors.  In
- * order to detect and break cycles, we mark a node busy by changing the
- * last byte of its name buffer (which should be 0) while iterating over
- * its children, then change it back when we are done.
+ * Recursively recalculate the depth and priority of a node and all its
+ * predecessors.  If the depth or priority of a node is less than the
+ * specified value, set it to that value and propagate the change to all
+ * of its predecessors, maintaining the invariant that a node's depth and
+ * priority are strictly greater than the depths and priorities of all its
+ * predecessors.
+ *
+ * In order to detect and break cycles, we mark a node busy by changing
+ * the last byte of its name buffer (which should be 0) while iterating
+ * over its children, then change it back when we are done.
  */
 static void
-pnode_raise(pnode *n, unsigned long prio)
+pnode_recalc(pnode *n, unsigned long depth, unsigned long prio)
 {
 	aa_iterator *nit;
 	pnode *p;
 
-	if (n->prio >= prio)
+	if (n->depth >= depth && n->prio >= prio)
 		return;
-	verbose("raising the priority of node %s from %lu to %lu",
-	    n->name, n->prio, prio);
+	if (depth > n->depth)
+		verbose("increasing the depth of node %s from %lu to %lu",
+		    n->name, n->depth, depth);
+	if (prio > n->prio)
+		verbose("raising the priority of node %s from %lu to %lu",
+		    n->name, n->prio, prio);
+	n->depth = depth;
 	n->prio = prio;
 	n->name[NAMELEN] = '*';
 	for (p = aa_first(&n->pred, &nit); p != NULL; p = aa_next(&nit)) {
@@ -159,7 +200,7 @@ pnode_raise(pnode *n, unsigned long prio)
 				exit(3);
 			continue;
 		}
-		pnode_raise(p, n->prio + 1);
+		pnode_recalc(p, n->depth + 1, n->prio + 1);
 	}
 	aa_finish(&nit);
 	n->name[NAMELEN] = '\0';
@@ -273,7 +314,7 @@ input(const char *fn)
 		prio = strtoul(snb, &e, 10);
 		if (e == sne) {
 			/* raise this node's priority */
-			pnode_raise(pn, prio);
+			pnode_recalc(pn, 0, prio);
 		} else if (pne - pnb == sne - snb &&
 		    strncmp(pnb, snb, pne - pnb) == 0) {
 			/* no-op for compatibility with tsort */
@@ -300,7 +341,7 @@ input(const char *fn)
 				verbose("insert new edge from %s to %s",
 				    pn->name, sn->name);
 				nedges++;
-				pnode_raise(pn, sn->prio + 1);
+				pnode_recalc(pn, sn->depth + 1, sn->prio + 1);
 			}
 		}
 	}
@@ -340,7 +381,8 @@ output(const char *fn)
 	/* p now points one past the end of the array */
 
 	/* sort by priority */
-	qsort(all, tnnodes, sizeof *all, pnodep_priocmp);
+	qsort(all, tnnodes, sizeof *all,
+	    bydepth ? pnodep_depthcmp : pnodep_priocmp);
 
 	/* output to file or stdout */
 	if (fn == NULL)
@@ -350,6 +392,8 @@ output(const char *fn)
 
 	/* reverse through the array and print each node's name */
 	while (p-- > all) {
+		if (printdepth)
+			fprintf(f, "%7lu ", (*p)->depth);
 		if (printprio)
 			fprintf(f, "%7lu ", (*p)->prio);
 		fprintf(f, "%s\n", (*p)->name);
@@ -364,7 +408,7 @@ static void
 usage(void)
 {
 
-	fprintf(stderr, "usage: ptsort [-pqsv] [-o output] [input ...]\n");
+	fprintf(stderr, "usage: ptsort [-Ddpqsv] [-o output] [input ...]\n");
 	exit(1);
 }
 
@@ -376,10 +420,16 @@ main(int argc, char *argv[])
 
 	aa_init(&nodes, (aa_comparator)strcmp);
 
-	while ((opt = getopt(argc, argv, "o:pqsv")) != -1)
+	while ((opt = getopt(argc, argv, "Ddo:pqsv")) != -1)
 		switch (opt) {
 		case 'o':
 			ofn = optarg;
+			break;
+		case 'D':
+			bydepth = 1;
+			break;
+		case 'd':
+			printdepth = 1;
 			break;
 		case 'p':
 			printprio = 1;
