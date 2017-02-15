@@ -231,6 +231,9 @@ input(const char *fn)
 		/* leading whitespace */
 		for (p = line; is_space(*p); p++)
 			/* nothing */;
+		/* ignore blank lines */
+		if (*p == '\n' || *p == '\0')
+			continue;
 		/* name of predecessor */
 		for (pnb = p; is_name(*p); p++)
 			/* nothing */;
