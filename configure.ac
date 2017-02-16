@@ -45,5 +45,6 @@ AC_CONFIG_FILES([
     bin/Makefile
     lib/Makefile
     t/Makefile
+    t/t_subr.sh
 ])
 AC_OUTPUT
