@@ -182,14 +182,16 @@ pnode_recalc(pnode *n, unsigned long depth, unsigned long prio)
 
 	if (n->depth >= depth && n->prio >= prio)
 		return;
-	if (depth > n->depth)
+	if (depth > n->depth) {
 		verbose("increasing the depth of node %s from %lu to %lu",
 		    n->name, n->depth, depth);
-	if (prio > n->prio)
+		n->depth = depth;
+	}
+	if (prio > n->prio) {
 		verbose("raising the priority of node %s from %lu to %lu",
 		    n->name, n->prio, prio);
-	n->depth = depth;
-	n->prio = prio;
+		n->prio = prio;
+	}
 	n->name[NAMELEN] = '*';
 	for (p = aa_first(&n->pred, &nit); p != NULL; p = aa_next(&nit)) {
 		if (p->name[NAMELEN] != '\0') {
