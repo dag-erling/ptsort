@@ -382,7 +382,7 @@ output(const char *fn)
 	aa_finish(&nit);
 	/* p now points one past the end of the array */
 
-	/* sort by priority */
+	/* sort by either priority or depth */
 	qsort(all, tnnodes, sizeof *all,
 	    bydepth ? pnodep_depthcmp : pnodep_priocmp);
 
@@ -404,6 +404,7 @@ output(const char *fn)
 	/* done */
 	if (f != stdout)
 		fclose(f);
+	free(all);
 }
 
 static void
