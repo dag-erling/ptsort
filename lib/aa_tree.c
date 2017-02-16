@@ -338,7 +338,7 @@ aa_first(const aa_tree *tree, aa_iterator **iterp)
 	while (node->left != &aa_nil)
 		node = node->left;
 	iter->cur = node;
-	return (node->data);
+	return (iter->cur->data);
 }
 
 void *
