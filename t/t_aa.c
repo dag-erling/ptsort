@@ -116,10 +116,13 @@ static int num_u[] = {
 	 4, 13, 12, 11,
 };
 
+static int t_aa_comparisons;
+
 static int
 t_aa_compare_i(const void *a, const void *b)
 {
 
+	t_aa_comparisons++;
 	return (*(const int *)a - *(const int *)b);
 }
 
@@ -189,6 +192,26 @@ t_aa_next(char **desc CRYB_UNUSED, void *arg CRYB_UNUSED)
 	ret &= t_is_null(aa_next(&iter));
 	aa_finish(&iter);
 	aa_destroy(&t);
+	ret &= t_compare_u(0, t.size);
+	return (ret);
+}
+
+static int
+t_aa_destroy(char **desc CRYB_UNUSED, void *arg CRYB_UNUSED)
+{
+	aa_tree t;
+	unsigned int i, n;
+	int ret;
+
+	ret = 1;
+	n = sizeof num_u / sizeof num_u[0];
+	aa_init(&t, t_aa_compare_i);
+	for (i = 0; i < n; ++i)
+		ret &= t_compare_ptr(&num_u[i], aa_insert(&t, &num_u[i]));
+	ret &= t_compare_u(n, t.size);
+	t_aa_comparisons = 0;
+	aa_destroy(&t);
+	ret &= t_compare_u(0, t_aa_comparisons);
 	return (ret);
 }
 
@@ -201,6 +224,7 @@ t_prepare(int argc CRYB_UNUSED, char *argv[] CRYB_UNUSED)
 		t_add_test(t_aa_test, &t_aa_cases[i], t_aa_cases[i].desc);
 	t_add_test(t_aa_find, NULL, "aa_find()");
 	t_add_test(t_aa_next, NULL, "aa_next()");
+	t_add_test(t_aa_destroy, NULL, "aa_destroy()");
 	return (0);
 }
 
