@@ -1,17 +1,16 @@
-AC_PREREQ([2.63])
+AC_PREREQ([2.71])
 AC_INIT([ptsort], [1.20170904], [des@des.no],
     [ptsort], [https://www.github.com/dag-erling/ptsort])
 AC_CONFIG_SRCDIR([bin/ptsort.c])
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE([foreign subdir-objects])
-AM_CONFIG_HEADER(lib/config.h)
+AC_CONFIG_HEADERS([lib/config.h])
 
 # C compiler and features
 AC_LANG(C)
 AC_PROG_CC
-AC_PROG_CC_STDC
 AC_PROG_CPP
-AC_GNU_SOURCE
+AC_USE_SYSTEM_EXTENSIONS
 AC_C_CONST
 AC_C_VOLATILE
 
