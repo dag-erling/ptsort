@@ -43,6 +43,7 @@
 #include "fline.h"
 
 static bool bydepth;
+static bool parallel;
 static bool printdepth;
 static bool printprio;
 static bool quiet;
@@ -397,16 +398,18 @@ output(const char *fn)
 	pnode **all, **p;
 	pnode *n;
 	FILE *f;
+	bool same = false;
 
 	/* allocate array of pointers */
-	if ((p = all = malloc(tnnodes * sizeof *all)) == NULL)
+	if ((p = all = malloc((tnnodes + 1) * sizeof *all)) == NULL)
 		err(1, "malloc()");
 
 	/* copy nodes into array in lexical order */
 	for (n = aa_first(&nodes, &nit); n != NULL; n = aa_next(&nit))
 		*p++ = n;
 	aa_finish(&nit);
-	/* p now points one past the end of the array */
+	/* p now points to the sentinel at the end of the array */
+	*p = NULL;
 
 	/* sort by either priority or depth */
 #if HAVE_MERGESORT
@@ -424,12 +427,21 @@ output(const char *fn)
 
 	/* reverse through the array and print each node's name */
 	while (p-- > all) {
-		if (printdepth)
+		if (parallel && p[1] != NULL) {
+			same = bydepth ? p[0]->depth == p[1]->depth :
+			    p[0]->prio == p[1]->prio;
+			fputc(same ? ' ' : '\n', f);
+		}
+		if (printdepth && !same)
 			fprintf(f, "%7lu ", (*p)->depth);
-		if (printprio)
+		if (printprio && !same)
 			fprintf(f, "%7lu ", (*p)->prio);
-		fprintf(f, "%s\n", (*p)->name);
+		fprintf(f, "%s", (*p)->name);
+		if (!parallel)
+			fputc('\n', f);
 	}
+	if (parallel)
+		fputc('\n', f);
 
 	/* done */
 	if (f != stdout)
@@ -441,7 +453,7 @@ static void
 usage(void)
 {
 
-	fprintf(stderr, "usage: ptsort [-Ddpqsv] [-o output] [input ...]\n");
+	fprintf(stderr, "usage: ptsort [-DdPpqsv] [-o output] [input ...]\n");
 	exit(1);
 }
 
@@ -464,6 +476,9 @@ main(int argc, char *argv[])
 		case 'd':
 			printdepth = true;
 			break;
+		case 'P':
+			parallel = true;
+			break;
 		case 'p':
 			printprio = true;
 			break;
@@ -483,12 +498,18 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
+	if (parallel && bydepth && printprio)
+		errx(1, "with -P, -p cannot be combined with -D");
+	if (parallel && !bydepth && printdepth)
+		errx(1, "with -P, -d must be combined with -D");
+
 	if (argc == 0)
 		input(NULL);
 	else
 		while (argc--)
 			input(*argv++);
 	verbose("graph has %lu nodes and %lu edges", tnnodes, tnedges);
-	output(ofn);
+	if (tnnodes > 0)
+		output(ofn);
 	exit(0);
 }
