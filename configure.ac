@@ -18,6 +18,9 @@ AC_C_VOLATILE
 AC_PROG_INSTALL
 AC_PROG_RANLIB
 
+# C library functions
+AC_CHECK_FUNC([mergesort])
+
 # libraries
 save_LIBS="${LIBS}"
 LIBS=""

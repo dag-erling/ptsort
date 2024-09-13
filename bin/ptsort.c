@@ -82,6 +82,11 @@ typedef struct pnode {
 	unsigned long	 prio;
 } pnode;
 
+/*
+ * Comparison function.
+ */
+typedef int (*pnode_cmp)(const pnode *, const pnode *);
+
 static aa_tree nodes;
 static unsigned long tnedges, tnnodes;
 
@@ -94,45 +99,43 @@ static aa_comparator pnode_namecmp = (aa_comparator)strcmp;
  * Compare two nodes by their depths first and priorities second.
  */
 static int
-pnode_depthcmp(const void *av, const void *bv)
+pnode_depthcmp(const pnode *a, const pnode *b)
 {
-	const pnode *a = av;
-	const pnode *b = bv;
-
 	return (a->depth > b->depth ? 1 : a->depth < b->depth ? -1 :
 	    a->prio > b->prio ? 1 : a->prio < b->prio ? -1 : 0);
 }
 
+#if HAVE_MERGESORT
 static int
 pnodep_depthcmp(const void *av, const void *bv)
 {
-	const pnode *const *a = av;
-	const pnode *const *b = bv;
+       const pnode *const *a = av;
+       const pnode *const *b = bv;
 
-	return (pnode_depthcmp(*a, *b));
+       return (pnode_depthcmp(*a, *b));
 }
+#endif
 
 /*
  * Compare two nodes by their priorities first and depths second.
  */
 static int
-pnode_priocmp(const void *av, const void *bv)
+pnode_priocmp(const pnode *a, const pnode *b)
 {
-	const pnode *a = av;
-	const pnode *b = bv;
-
 	return (a->prio > b->prio ? 1 : a->prio < b->prio ? -1 :
 	    a->depth > b->depth ? 1 : a->depth < b->depth ? -1 : 0);
 }
 
+#if HAVE_MERGESORT
 static int
 pnodep_priocmp(const void *av, const void *bv)
 {
-	const pnode *const *a = av;
-	const pnode *const *b = bv;
+       const pnode *const *a = av;
+       const pnode *const *b = bv;
 
-	return (pnode_priocmp(*a, *b));
+       return (pnode_priocmp(*a, *b));
 }
+#endif
 
 /*
  * Allocate and initialize a new node.
@@ -359,6 +362,28 @@ input(const char *fn)
 	tnnodes += nnodes;
 }
 
+#if !HAVE_MERGESORT
+/*
+ * Sort an array of nodes.
+ *
+ * Insertion sort is not the fastest, but it is stable and requires no
+ * additional memory.
+ */
+static void
+sort(pnode **array, unsigned long n, pnode_cmp cmp)
+{
+	pnode *t;
+	unsigned long i, j;
+
+	for (i = 1; i < n; i++) {
+		t = array[i];
+		for (j = i; j > 0 && cmp(array[j-1], t) == 1; j--)
+			array[j] = array[j-1];
+		array[j] = t;
+	}
+}
+#endif
+
 /*
  * Output a partial ordering of the nodes in the graph.  We form an array
  * of pointers to all of our notes, sort them by priority and print the
@@ -383,8 +408,12 @@ output(const char *fn)
 	/* p now points one past the end of the array */
 
 	/* sort by either priority or depth */
-	qsort(all, tnnodes, sizeof *all,
+#if HAVE_MERGESORT
+	mergesort(all, tnnodes, sizeof *all,
 	    bydepth ? pnodep_depthcmp : pnodep_priocmp);
+#else
+	sort(all, tnnodes, bydepth ? pnode_depthcmp : pnode_priocmp);
+#endif
 
 	/* output to file or stdout */
 	if (fn == NULL)
