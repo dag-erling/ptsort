@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2016-2018 Dag-Erling Smørgrav
+ * Copyright (c) 2016-2024 Dag-Erling Smørgrav
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -221,7 +221,7 @@ t_prepare(int argc CRYB_UNUSED, char *argv[] CRYB_UNUSED)
 	unsigned int i;
 
 	for (i = 0; i < sizeof t_aa_cases / sizeof t_aa_cases[0]; ++i)
-		t_add_test(t_aa_test, &t_aa_cases[i], t_aa_cases[i].desc);
+		t_add_test(t_aa_test, &t_aa_cases[i], "%s", t_aa_cases[i].desc);
 	t_add_test(t_aa_find, NULL, "aa_find()");
 	t_add_test(t_aa_next, NULL, "aa_next()");
 	t_add_test(t_aa_destroy, NULL, "aa_destroy()");
