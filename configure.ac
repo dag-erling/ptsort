@@ -1,5 +1,5 @@
 AC_PREREQ([2.71])
-AC_INIT([ptsort], [1.20170904], [des@des.no],
+AC_INIT([ptsort], [1.20240913], [des@des.no],
     [ptsort], [https://www.github.com/dag-erling/ptsort])
 AC_CONFIG_SRCDIR([bin/ptsort.c])
 AC_CONFIG_MACRO_DIR([m4])
