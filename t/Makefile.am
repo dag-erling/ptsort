@@ -1,10 +1,12 @@
 AM_CPPFLAGS = -I$(top_srcdir)/lib
 LIBPSORT = $(top_builddir)/lib/libptsort.a
 
-if WITH_TESTS
+if WITH_CRYB_TEST
 
 check_PROGRAMS = t_aa
 t_aa_LDADD = $(LIBPSORT) $(LIBCRYB_TEST)
+
+endif
 
 dist_check_SCRIPTS = t_dp_red.sh
 
@@ -15,5 +17,3 @@ EXTRA_DIST = t_dp_red.ti t_dp_red.to
 TESTS = $(check_PROGRAMS) $(dist_check_SCRIPTS)
 
 CLEANFILES = t_subr.sh
-
-endif
