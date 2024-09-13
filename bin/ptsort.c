@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2016-2017 Dag-Erling Smørgrav
+ * Copyright (c) 2016-2024 Dag-Erling Smørgrav
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,6 +33,7 @@
 
 #include <err.h>
 #include <limits.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,11 +42,11 @@
 #include "aa_tree.h"
 #include "fline.h"
 
-static int bydepth;
-static int printdepth;
-static int printprio;
-static int quiet;
-static int strict;
+static bool bydepth;
+static bool printdepth;
+static bool printprio;
+static bool quiet;
+static bool strict;
 static int vlevel;
 
 #define verbose(...)							\
@@ -452,25 +453,25 @@ main(int argc, char *argv[])
 
 	aa_init(&nodes, (aa_comparator)strcmp);
 
-	while ((opt = getopt(argc, argv, "Ddo:pqsv")) != -1)
+	while ((opt = getopt(argc, argv, "Ddo:Ppqsv")) != -1)
 		switch (opt) {
 		case 'o':
 			ofn = optarg;
 			break;
 		case 'D':
-			bydepth = 1;
+			bydepth = true;
 			break;
 		case 'd':
-			printdepth = 1;
+			printdepth = true;
 			break;
 		case 'p':
-			printprio = 1;
+			printprio = true;
 			break;
 		case 'q':
-			quiet = 1;
+			quiet = true;
 			break;
 		case 's':
-			strict = 1;
+			strict = true;
 			break;
 		case 'v':
 			vlevel++;
